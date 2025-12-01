@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from analysis.stats import *
 from analysis.plots import *
 from analysis.simulations import *
+from analysis.models import *
 
 class HealthAnalyzer:
     """Klass som kapslar vanliga analyser för hälsodata.
@@ -40,9 +41,9 @@ class HealthAnalyzer:
         "Stapeldiagram av andelen rökare"
         plot_bar_smoker_or_not(self.df)
 
-    def scatter_age_bp(self):
-        """Boxplot av rökare vs icke-rökare."""
-        plot_scatter_age_bp(self.df)
+    def plot_bp_vs_age(self, color_by='smoker'):
+        """Wrapper för plot_bp_vs_age i plots.py"""
+        plot_bp_vs_age(self.df, color_by=color_by)
 
     def disease_simulation(self, n_sim=1000, seed=42):
         """Kör simulering av sjukdomsförekomst.
@@ -115,3 +116,74 @@ class HealthAnalyzer:
         smokers = self.df[self.df['smoker']=='Yes']['systolic_bp'].dropna()
         nonsmokers = self.df[self.df['smoker']=='No']['systolic_bp'].dropna()
         return power_teoretical_ttest(smokers, nonsmokers, effect_values, alpha=alpha)
+    
+
+
+    def regression_feature(self, feature):
+        """
+        Enkel regression för valfri feature mot systolic_bp
+        """
+        return regression_single_feature(self.df, feature)
+
+    
+    def plot_regression_with_residuals(self, feature):
+        """
+        Enkel regression: target ~ feature
+        Plottar både scatter + regressionslinje och residualer.
+        """
+        reg_res = self.regression_feature(feature)
+        preds = reg_res['predictions']
+
+        # Scatter + regressionslinje
+        plt.figure(figsize=(6,4))
+        plt.scatter(self.df[feature], self.df['systolic_bp'], alpha=0.5)
+        plt.plot(np.sort(self.df[feature]), preds[np.argsort(self.df[feature])], color='r')
+        plt.xlabel(feature)
+        plt.ylabel('Systoliskt blodtryck')
+        plt.title(f'Regression: BP vs {feature}')
+        plt.show()
+
+        # Residualplot
+        residuals = self.df['systolic_bp'] - preds
+        plt.figure(figsize=(6,4))
+        plt.scatter(self.df[feature], residuals, alpha=0.5)
+        plt.axhline(0, color='r', linestyle='--')
+        plt.xlabel(feature)
+        plt.ylabel('Residualer')
+        plt.title(f'Residualplot: BP ~ {feature}')
+        plt.show()
+
+    def pca(self, columns, n_components=2):
+        """Wrapper för perform_pca i models.py"""
+        return perform_pca(self.df, columns, n_components)
+    
+
+    def plot_pca(self, columns, group_col, group_colors, title):
+        """Scatterplot av PCA med färgkodning."""
+        pca_res = self.pca(columns)
+        plot_pca_scatter(pca_res['components'], self.df, group_col, group_colors, title)
+
+    def regression_multiple(self, features, target='systolic_bp'):
+        """
+        Multipel linjär regression för valda features mot target.
+        
+        Parameters
+        ----------
+        features : list of str
+            Lista på kolumner som ska användas som prediktorer.
+        target : str
+            Beroende variabel (default 'systolic_bp').
+
+        Returns
+        -------
+        dict
+            Innehåller model, coefficients, intercept och prediktioner.
+        """
+        return regression_multiple_features(self.df, features, target)   
+    
+    def plot_regression_multiple(self, features, target='systolic_bp'):
+        """
+        Wrapper för multipel regression plot.
+        """
+        reg_res = self.regression_multiple(features, target)
+        plot_regression_multiple(reg_res['predictions'], self.df[target])
